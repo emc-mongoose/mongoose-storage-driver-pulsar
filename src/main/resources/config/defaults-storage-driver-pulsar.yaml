@@ -1,0 +1,10 @@
+---
+storage:
+  net:
+    sndBuf: 131072
+    rcvBuf: 32768
+    linger: 0
+    node:
+      addrs:
+        - 127.0.0.1
+      port: 9092

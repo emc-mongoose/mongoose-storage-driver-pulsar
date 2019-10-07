@@ -2,4 +2,4 @@
 umask 0000
 export JAVA_HOME=/opt/mongoose
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${JAVA_HOME}/bin
-java -jar /opt/mongoose/mongoose.jar --storage-driver-type=kafka --storage-net-node-port=9092 "$@"
+java -jar /opt/mongoose/mongoose.jar --storage-driver-type=pulsar --storage-net-node-port=6650 "$@"

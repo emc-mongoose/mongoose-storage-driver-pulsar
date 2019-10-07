@@ -97,6 +97,7 @@ dependencies {
 	)
 	provided(
 		"org.apache.pulsar:pulsar-client:${pulsarVersion}",
+		"org.apache.pulsar:pulsar-client-admin:${pulsarVersion}",
 	)
 	testCompile(
 		"junit:junit:[4,)",

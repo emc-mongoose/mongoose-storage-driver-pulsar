@@ -1,0 +1,9 @@
+---
+storage:
+  net:
+    sndBuf: int
+    rcvBuf: int
+    linger: int
+    node:
+      addrs: list
+      port: int
