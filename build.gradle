@@ -55,7 +55,7 @@ ext {
 		disruptor                : "3.4.2",
 		dockerJava               : "3.0.14",
 		log4j                    : "2.8.2",
-		mongooseBase             : "4.2.15",
+		mongooseBase             : "4.2.16",
 		mongooseStorageDriverPreempt: "4.2.21",
 		mongooseLoadStepPipeline : "4.2.11",
 	]
@@ -102,8 +102,6 @@ dependencies {
 	testCompile(
 		"junit:junit:[4,)",
 		"com.github.docker-java:docker-java:[3,)",
-		"org.scala-lang:scala-compiler:${depVersion.scala}",
-		"org.scala-lang:scala-library:${depVersion.scala}",
 		"org.apache.commons:commons-csv:1.1",
 	)
 	testRuntime(

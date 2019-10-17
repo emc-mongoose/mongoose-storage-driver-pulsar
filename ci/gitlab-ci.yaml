@@ -3,8 +3,8 @@ image: docker:stable
 variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_DRIVER: overlay2
-  IMAGE_NAME: emcmongoose/mongoose-storage-driver-kafka
-  IMAGE_FILE_NAME: build/mongoose-storage-driver-kafka.tar
+  IMAGE_NAME: emcmongoose/mongoose-storage-driver-pulsar
+  IMAGE_FILE_NAME: build/mongoose-storage-driver-pulsar.tar
   JAVA_HOME: /opt/jdk-11.0.2+9
   ROBOTEST_CONTAINER_WORKING_DIR: /root/mongoose
   SERVICE_HOST: 172.17.0.4 # should be used instead of the "localhost"/"127.0.0.1" in GL CI
@@ -18,8 +18,7 @@ stages:
   - deploy
 
 before_script:
-  - export KAFKA_VERSION=$(cat build.gradle | grep kafka | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
-  - export SCALA_VERSION=$(cat build.gradle | grep scala | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' | sed 's/\([^\.]*\.[^\.]*\)\..*/\1/')
+  - export PULSAR_VERSION=$(cat gradle.properties | grep pulsar | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
   - apk --update add --no-cache ca-certificates curl openssl binutils xz gnupg bash
   - curl -Lks https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.2%2B9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.2_9.tar.gz -o /tmp/jdk11.tgz
   - tar xvf /tmp/jdk11.tgz -C /opt
@@ -68,21 +67,19 @@ test_unit:
 test_integration:
   stage: test
   script:
-  # Install Kafka
-  - wget http://apache-mirror.rbc.ru/pub/apache/kafka/${KAFKA_VERSION}/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz -O /opt/kafka.tgz
+  # Install Pulsar
+  - wget https://archive.apache.org/dist/pulsar/pulsar-${PULSAR_VERSION}/apache-pulsar-${PULSAR_VERSION}-bin.tar.gz -O /opt/pulsar.tgz
   - cd /opt
-  - tar xvf kafka.tgz
-  - cd kafka_$SCALA_VERSION-$KAFKA_VERSION
-  - bash ./bin/zookeeper-server-start.sh config/zookeeper.properties > /tmp/zookeeper_bash.out &
-  - bash ./bin/kafka-server-start.sh config/server.properties > /tmp/kafka_bash.out &
+  - tar xvf pulsar.tgz
+  - cd apache-pulsar-${PULSAR_VERSION}
+  - bash ./bin/pulsar standalone > /tmp/pulsar.out &
   - cd ${CI_PROJECT_DIR}
   - ./gradlew integrationTest
   after_script:
   - killall java
   artifacts:
     paths:
-    - /tmp/zookeeper_bash.out
-    - /tmp/kafka_bash.out
+    - /tmp/pulsar.out
     - build/reports/tests/integrationTest/*
     when: on_failure
 
@@ -109,8 +106,7 @@ build_docker_image:
     - pip install -U robotframework
     - pip install -U robotframework-requests
     - pip install -U robotframework-csvlibrary
-    - export KAFKA_VERSION=$(cat build.gradle | grep kafka | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
-    - export SCALA_VERSION=$(cat build.gradle | grep scala | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' | sed 's/\([^\.]*\.[^\.]*\)\..*/\1/')
+    - export PULSAR_VERSION=$(cat gradle.properties | grep pulsar | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
     - apk --update add --no-cache ca-certificates curl openssl binutils xz gnupg bash
     - curl -Lks https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.2%2B9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.2_9.tar.gz -o /tmp/jdk11.tgz
     - tar xvf /tmp/jdk11.tgz -C /opt
@@ -139,12 +135,12 @@ build_docker_image:
     - apk del binutils
     - rm -rf /tmp/${GLIBC_VER}.apk /tmp/gcc /tmp/gcc-libs.tar.xz /tmp/libz /tmp/libz.tar.xz /var/cache/apk/*
   script:
-    - wget http://apache-mirror.rbc.ru/pub/apache/kafka/$KAFKA_VERSION/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz -O /opt/kafka.tgz
+    # Install Pulsar
+    - wget https://archive.apache.org/dist/pulsar/pulsar-${PULSAR_VERSION}/apache-pulsar-${PULSAR_VERSION}-bin.tar.gz -O /opt/pulsar.tgz
     - cd /opt
-    - tar xvf kafka.tgz
-    - cd kafka_$SCALA_VERSION-$KAFKA_VERSION
-    - bash ./bin/zookeeper-server-start.sh config/zookeeper.properties > /tmp/zookeeper_bash.out &
-    - bash ./bin/kafka-server-start.sh config/server.properties --override zookeeper.connect=${SERVICE_HOST}:2181 --override listeners=PLAINTEXT://0.0.0.0:9092 --override  advertised.listeners=PLAINTEXT://${SERVICE_HOST}:9092 > /tmp/kafka_bash.out &
+    - tar xvf pulsar.tgz
+    - cd apache-pulsar-${PULSAR_VERSION}
+    - bash ./bin/pulsar standalone > /tmp/pulsar.out &
     - cd $HOST_WORKING_DIR
     - export BASE_VERSION=$(cat build.gradle | grep mongooseBase  | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
     - export VERSION=$(cat build.gradle | grep version\ = | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
