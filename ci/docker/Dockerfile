@@ -5,7 +5,7 @@ ADD src ./src/
 ADD gradle ./gradle/
 ADD build.gradle ./build.gradle
 ADD gradlew ./gradlew
-ADD settings.gradle ./settings.gradle
+ADD gradle.properties ./gradle.properties
 RUN ./gradlew clean jar
 
 FROM emcmongoose/mongoose-base:${BASE_VERSION}
