@@ -1,4 +1,4 @@
-package com.emc.mongoose.storage.driver.pulsar;
+package com.emc.mongoose.storage.driver.pulsar.integration;
 
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import org.apache.pulsar.client.api.MessageId;

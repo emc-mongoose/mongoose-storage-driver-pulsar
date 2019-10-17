@@ -1,4 +1,4 @@
-package com.emc.mongoose.storage.driver.pulsar;
+package com.emc.mongoose.storage.driver.pulsar.integration;
 
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.PulsarClient;
