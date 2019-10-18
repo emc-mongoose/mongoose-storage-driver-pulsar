@@ -56,7 +56,7 @@ ext {
 		dockerJava               : "3.0.14",
 		log4j                    : "2.8.2",
 		mongooseBase             : "4.2.16",
-		mongooseStorageDriverPreempt: "4.2.21",
+		mongooseStorageDriverCoop: "4.2.18",
 		mongooseLoadStepPipeline : "4.2.11",
 	]
 	rootPkg = "com.emc.mongoose.storage.driver.pulsar"
@@ -90,6 +90,7 @@ dependencies {
 	compileOnly(
 		"org.projectlombok:lombok:1.18.6",
 		"com.github.emc-mongoose:mongoose-base:${depVersion.mongooseBase}",
+		"com.github.emc-mongoose:mongoose-storage-driver-coop:${depVersion.mongooseStorageDriverCoop}",
 		"com.github.akurilov:confuse:${depVersion.confuse}",
 		"com.github.akurilov:confuse-io-yaml:${depVersion.confuseIoYaml}",
 		"com.github.akurilov:java-commons:${depVersion.commonsJava}",
@@ -250,7 +251,7 @@ task dockerBuildImage(type: DockerBuildImage) {
 	buildArgs = [
 		"BASE_VERSION"       : depVersion.mongooseBase,
 		"LOAD_STEP_PIPELINE_VERSION": depVersion.mongooseLoadStepPipeline,
-		"STORAGE_DRIVER_PREEMPT_VERSION": depVersion.mongooseStorageDriverPreempt,
+		"STORAGE_DRIVER_COOP_VERSION": depVersion.mongooseStorageDriverCoop,
 		"VERSION"            : version,
 	]
 	dockerFile = project.file("ci${File.separator}docker${File.separator}Dockerfile")
