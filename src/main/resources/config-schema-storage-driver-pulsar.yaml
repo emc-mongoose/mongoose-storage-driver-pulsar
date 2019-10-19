@@ -4,6 +4,8 @@ storage:
     sndBuf: int
     rcvBuf: int
     linger: int
+    tcpNoDelay: boolean
+    timeoutMilliSec: int
     node:
       addrs: list
       port: int

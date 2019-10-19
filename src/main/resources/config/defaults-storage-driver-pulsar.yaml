@@ -4,6 +4,8 @@ storage:
     sndBuf: 131072
     rcvBuf: 32768
     linger: 0
+    tcpNoDelay: true
+    timeoutMilliSec: 0
     node:
       addrs:
         - 127.0.0.1
