@@ -1,4 +1,4 @@
-package com.emc.mongoose.storage.driver.pulsar.cache;
+package com.emc.mongoose.storage.driver.pulsar.io.read;
 
 import org.apache.pulsar.client.api.Consumer;
 

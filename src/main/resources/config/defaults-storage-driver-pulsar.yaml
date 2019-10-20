@@ -1,12 +1,11 @@
 ---
 storage:
   driver:
-    message:
+    create:
       compression: none
+    read:
+      tail: false
   net:
-    sndBuf: 131072
-    rcvBuf: 32768
-    linger: 0
     tcpNoDelay: true
     timeoutMilliSec: 0
     node:

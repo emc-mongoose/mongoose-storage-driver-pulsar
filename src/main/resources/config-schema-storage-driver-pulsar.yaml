@@ -1,12 +1,11 @@
 ---
 storage:
   driver:
-    message:
+    create:
       compression: string
+    read:
+      tail: boolean
   net:
-    sndBuf: int
-    rcvBuf: int
-    linger: int
     tcpNoDelay: boolean
     timeoutMilliSec: int
     node:
