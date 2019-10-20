@@ -1,5 +1,8 @@
 ---
 storage:
+  driver:
+    message:
+      compression: string
   net:
     sndBuf: int
     rcvBuf: int

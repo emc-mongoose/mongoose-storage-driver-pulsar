@@ -1,5 +1,8 @@
 ---
 storage:
+  driver:
+    message:
+      compression: none
   net:
     sndBuf: 131072
     rcvBuf: 32768
