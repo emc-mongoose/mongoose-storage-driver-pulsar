@@ -157,12 +157,6 @@ build_docker_image:
       - build/log/create_record_test/*.log
     when: on_failure
 
-test_create_record:
-  extends: .test_robot
-  variables:
-    SUITE: api.storage
-    TEST: create_record
-
 release_to_maven_repo:
   stage: deploy
   script:
