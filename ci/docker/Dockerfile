@@ -19,6 +19,5 @@ COPY --from=0 /build/libs/mongoose-storage-driver-pulsar-${VERSION}.jar /tmp/
 ADD ci/docker/entrypoint_storage_driver_pulsar.sh /opt/mongoose/entrypoint_storage_driver_pulsar.sh
 RUN mv -f /tmp/mongoose-storage-driver-pulsar-*.jar $HOME/.mongoose/${BASE_VERSION}/ext/ \
     && chmod +x /opt/mongoose/entrypoint_storage_driver_pulsar.sh \
-    && curl http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-load-step-pipeline/${LOAD_STEP_PIPELINE_VERSION}/mongoose-load-step-pipeline-${LOAD_STEP_PIPELINE_VERSION}.jar -o $HOME/.mongoose/${BASE_VERSION}/ext/mongoose-load-step-pipeline.jar \
-    && curl http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-coop/${STORAGE_DRIVER_COOP_VERSION}/mongoose-storage-driver-preempt-${STORAGE_DRIVER_COOP_VERSION}.jar -o $HOME/.mongoose/${BASE_VERSION}/ext/mongoose-storage-driver-coop.jar
+    && curl http://repo.maven.apache.org/maven2/com/github/emc-mongoose/mongoose-storage-driver-coop/${STORAGE_DRIVER_COOP_VERSION}/mongoose-storage-driver-coop-${STORAGE_DRIVER_COOP_VERSION}.jar -o $HOME/.mongoose/${BASE_VERSION}/ext/mongoose-storage-driver-coop.jar
 ENTRYPOINT ["/opt/mongoose/entrypoint_storage_driver_pulsar.sh"]
