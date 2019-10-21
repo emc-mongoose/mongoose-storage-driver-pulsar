@@ -78,7 +78,6 @@ Start Mongoose Scenario
     ${cmd} =  Catenate  SEPARATOR= \\\n\t
     ...  docker run
     ...  --detach
-    ...  --name ${MONGOOSE_CONTAINER_NAME}
     ...  --network host
     ...  ${docker_env_vars}
     ...  --volume ${host_working_dir}/${shared_data_dir}:${MONGOOSE_CONTAINER_DATA_DIR}
