@@ -5,41 +5,97 @@ import com.emc.mongoose.base.data.DataInput;
 import com.emc.mongoose.base.item.DataItem;
 import com.emc.mongoose.base.item.ItemFactory;
 import com.emc.mongoose.base.item.op.OpType;
+import com.emc.mongoose.base.item.op.Operation.Status;
 import com.emc.mongoose.base.item.op.data.DataOperation;
+import com.emc.mongoose.base.logging.LogUtil;
+import com.emc.mongoose.base.logging.Loggers;
 import com.emc.mongoose.base.storage.Credential;
 import com.emc.mongoose.storage.driver.coop.CoopStorageDriverBase;
-import com.emc.mongoose.storage.driver.pulsar.io.SpecificOperationDriver;
-import com.emc.mongoose.storage.driver.pulsar.io.create.CreateDriver;
-import com.emc.mongoose.storage.driver.pulsar.io.read.ReadDriver;
+
+import static com.emc.mongoose.base.item.op.Operation.Status.FAIL_IO;
+import static com.emc.mongoose.base.item.op.Operation.Status.FAIL_UNKNOWN;
 import static com.emc.mongoose.base.item.op.Operation.Status.SUCC;
+import static com.emc.mongoose.storage.driver.pulsar.Constants.MAX_MSG_SIZE;
+import static java.lang.System.currentTimeMillis;
+import static java.lang.System.nanoTime;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static org.apache.pulsar.client.api.SubscriptionInitialPosition.Earliest;
+import static org.apache.pulsar.client.api.SubscriptionInitialPosition.Latest;
+
+import com.emc.mongoose.storage.driver.pulsar.cache.ConsumerFunction;
+import com.emc.mongoose.storage.driver.pulsar.cache.ProducerFunction;
 import com.github.akurilov.confuse.Config;
+import lombok.Value;
 import lombok.val;
+import org.apache.logging.log4j.Level;
+import org.apache.pulsar.client.api.CompressionType;
+import org.apache.pulsar.client.api.Consumer;
+import org.apache.pulsar.client.api.Message;
+import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
+import org.apache.pulsar.client.api.SubscriptionInitialPosition;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class PulsarStorageDriver<I extends DataItem, O extends DataOperation<I>>
 extends CoopStorageDriverBase<I, O> {
 
 	protected final int storageNodePort;
 	protected final String[] storageNodeAddrs;
+	protected final CompressionType producerCompressionType;
+	protected final SubscriptionInitialPosition initPos;
+	protected final int batchSize;
+	protected final boolean producerBatchingFlag;
+	protected final long producerBatchingDelayMicros;
+	protected final boolean producerRecordTimeFlag;
+
 	private final Map<String, PulsarClient> clients = new ConcurrentHashMap<>();
-	private final SpecificOperationDriver<I, O> createDriver;
-	private final SpecificOperationDriver<I, O> readDriver;
+	private final Map<String, ProducerFunction> producerFuncCache = new ConcurrentHashMap<>();
+	private final Map<String, Producer<byte[]>> producerCache = new ConcurrentHashMap<>();
+	private final Map<String, ConsumerFunction> consumerFuncCache = new ConcurrentHashMap<>();
+	private final Map<String, Consumer<byte[]>> consumerCache = new ConcurrentHashMap<>();
 
 	public PulsarStorageDriver(
 		final String stepId, final DataInput dataInput, final Config storageConfig, final boolean verifyFlag,
 		final int batchSize
 	) throws IllegalConfigurationException {
 		super(stepId, dataInput, storageConfig, verifyFlag, batchSize);
+		this.batchSize = batchSize;
 		val driverConfig = storageConfig.configVal("driver");
+		// create config
+		val createConfig = driverConfig.configVal("create");
+		val batchConfig = createConfig.configVal("batch");
+		this.producerBatchingFlag = batchConfig.boolVal("enabled");
+		this.producerBatchingDelayMicros = batchConfig.longVal("delayMicros");
+		val compressionRaw = (String) createConfig.val("compression");
+		try {
+			this.producerCompressionType = CompressionType.valueOf(compressionRaw.toUpperCase());
+		} catch(final Exception e) {
+			val compressionTypes = Arrays
+				.stream(CompressionType.values())
+				.map(Enum::toString)
+				.map(String::toLowerCase)
+				.collect(Collectors.joining(", "));
+			throw new IllegalConfigurationException(
+				"Invalid compression type value: \"" + compressionRaw + "\", valid values are: " + compressionTypes
+			);
+		}
+		this.producerRecordTimeFlag = createConfig.boolVal("timestamp");
+		// read config
+		val readConfig = driverConfig.configVal("read");
+		val tailReadFlag = readConfig.boolVal("tail");
+		// misc config
+		initPos = tailReadFlag ? Latest : Earliest;
 		val netConfig = storageConfig.configVal("net");
 		val tcpNoDelay = netConfig.boolVal("tcpNoDelay");
 		val connTimeoutMillis = netConfig.intVal("timeoutMilliSec");
@@ -76,11 +132,64 @@ extends CoopStorageDriverBase<I, O> {
 		}
 		this.requestAuthTokenFunc = null;
 		this.requestNewPathFunc = null;
-		val createConfig = driverConfig.configVal("create");
-		this.createDriver = new CreateDriver<>(this, clients, concurrencyThrottle, createConfig);
-		val readConfig = driverConfig.configVal("read");
-		this.readDriver = new ReadDriver<>(this, clients, concurrencyThrottle, readConfig);
 	}
+
+	@Value
+	final class ProducerFunctionImpl
+	implements ProducerFunction {
+
+		String nodeAddr;
+
+		@Override
+		public final Producer<byte[]> apply(final String topicName) {
+			var producer = (Producer<byte[]>) null;
+			try {
+				producer = clients
+					.get(nodeAddr)
+					.newProducer()
+					.topic(topicName)
+					.enableBatching(producerBatchingFlag)
+					.batchingMaxMessages(batchSize)
+					.batchingMaxPublishDelay(producerBatchingDelayMicros, MICROSECONDS)
+					.compressionType(producerCompressionType)
+					.create();
+			} catch(final Exception e) {
+				LogUtil.exception(
+					Level.ERROR, e, "{}: failed to create a producer for the node \"{}\" and topic \"{}\"",
+					stepId, nodeAddr, topicName
+				);
+			}
+			return producer;
+		}
+	}
+
+	@Value
+	final class ConsumerFunctionImpl
+	implements ConsumerFunction {
+
+		String nodeAddr;
+
+		@Override
+		public final Consumer<byte[]> apply(final String topicName) {
+			var consumer = (Consumer<byte[]>) null;
+			try {
+				consumer = clients
+					.get(nodeAddr)
+					.newConsumer()
+					.topic(topicName)
+					.subscriptionInitialPosition(initPos)
+					.subscriptionName(Long.toString(nanoTime()))
+					.subscribe();
+			} catch(final Exception e) {
+				LogUtil.exception(
+					Level.ERROR, e, "Failed to create a consumer for the node \"{}\" and topic \"{}\"",
+					nodeAddr, topicName
+				);
+			}
+			return consumer;
+		}
+	}
+
 	@Override
 	protected final boolean prepare(final O op) {
 		if(super.prepare(op)) {
@@ -98,14 +207,15 @@ extends CoopStorageDriverBase<I, O> {
 			case NOOP:
 				return noop(op);
 			case CREATE:
-				return createDriver.submit(op);
+				return submitCreate(op);
 			case READ:
-				return readDriver.submit(op);
+				return submitRead(op);
 			default:
 				throw new AssertionError("Unexpected operation type: " + opType);
 		}
 	}
 
+	@SuppressWarnings("StatementWithEmptyBody")
 	@Override
 	protected final int submit(final List<O> ops, final int from, final int to)
 	throws IllegalStateException {
@@ -113,11 +223,14 @@ extends CoopStorageDriverBase<I, O> {
 		val opType = anyOp.type();
 		switch(opType) {
 			case NOOP:
-				return noop(ops, from, to);
+				for(var i = from; i < to && noop(ops.get(i)); i ++);
+				return to - from;
 			case CREATE:
-				return createDriver.submit(ops, from, to);
+				for(var i = from; i < to && submitCreate(ops.get(i)); i ++);
+				return to - from;
 			case READ:
-				return readDriver.submit(ops, from, to);
+				for(var i = from; i < to && submitRead(ops.get(i)); i++);
+				return to - from;
 			default:
 				throw new AssertionError("Unexpected operation type: " + opType);
 		}
@@ -142,15 +255,99 @@ extends CoopStorageDriverBase<I, O> {
 		return true;
 	}
 
-	final int noop(final List<O> ops, final int from, final int to) {
-		for(var i = from; i < to; i ++) {
-			noop(ops.get(i));
+	protected boolean submitCreate(final O op) {
+		val nodeAddr = op.nodeAddr();
+		val producerFunc = producerFuncCache.computeIfAbsent(nodeAddr, ProducerFunctionImpl::new);
+		val topicName = op.dstPath();
+		val producer = producerCache.computeIfAbsent(topicName, producerFunc);
+		val item = op.item();
+		try {
+			val msgSize = item.size();
+			if(msgSize > MAX_MSG_SIZE) {
+				failOperation(op, FAIL_IO);
+			} else if(msgSize < 0) {
+				failOperation(op, FAIL_IO);
+			} else {
+				if(concurrencyThrottle.tryAcquire()) {
+					val msgBuilder = producer.newMessage();
+					if(msgSize > 0) {
+						val msgData = ByteBuffer.allocate((int) msgSize);
+						for(var n = 0L; n < msgSize; n += item.read(msgData)); // copy the data to the buffer
+						msgBuilder.value(msgData.array());
+					}
+					if(producerRecordTimeFlag) {
+						msgBuilder.eventTime(currentTimeMillis());
+					}
+					op.startRequest();
+					val f = msgBuilder.sendAsync();
+					try {
+						op.finishRequest();
+					} catch(final IllegalStateException ignored) {
+					}
+					f.handle((msgId, thrown) -> handleMessageTransferred(op, thrown, msgSize));
+				} else {
+					return false;
+				}
+			}
+		} catch(final IOException e) {
+			throw new AssertionError(e);
 		}
-		return to - from;
+		return true;
 	}
 
-	public final boolean handleCompletedOperation(final O op) {
-		return super.handleCompleted(op);
+	protected final void failOperation(final O op, final Status status) {
+		op.status(status);
+		handleCompleted(op);
+	}
+
+	protected Object handleMessageTransferred(final O op, final Throwable thrown, final long transferSize) {
+		try {
+			if(null == thrown) {
+				op.startResponse();
+				op.finishResponse();
+				op.countBytesDone(transferSize);
+				op.status(SUCC);
+				handleCompleted(op);
+			} else {
+				failOperation(op, FAIL_UNKNOWN);
+			}
+		} finally {
+			concurrencyThrottle.release();
+		}
+		return null;
+	}
+
+	protected boolean submitRead(final O op) {
+		val nodeAddr = op.nodeAddr();
+		val consumerFunc = consumerFuncCache.computeIfAbsent(nodeAddr, ConsumerFunctionImpl::new);
+		val topicName = op.dstPath();
+		val consumer = consumerCache.computeIfAbsent(topicName, consumerFunc);
+		if(concurrencyThrottle.tryAcquire()) {
+			op.startRequest();
+			val f = consumer.receiveAsync();
+			try {
+				op.finishRequest();
+			} catch(final IllegalStateException ignored) {
+			}
+			f.handle((msg, thrown) -> handleMessageRead(op, thrown, msg));
+			return true;
+		}
+		return false;
+	}
+
+	protected Object handleMessageRead(final O op, final Throwable thrown, final Message<byte[]> msg) {
+		val msgSize = msg.getData().length;
+		if(Latest.equals(initPos)) { // tail read, try to determine the end-to-end time
+			val e2eTimeMillis = currentTimeMillis() - msg.getEventTime();
+			if(e2eTimeMillis > 0) {
+				Loggers.OP_TRACES.info(new EndToEndLogMessage(msg.getMessageId(), msgSize, e2eTimeMillis));
+			} else {
+				Loggers.ERR.warn(
+					"{}: publish time is in the future for the message \"{}\"", stepId, msg.getMessageId()
+				);
+			}
+		}
+		return handleMessageTransferred(op, thrown, msgSize);
 	}
 
 	@Override
@@ -179,11 +376,14 @@ extends CoopStorageDriverBase<I, O> {
 	}
 
 	@Override
-	protected final void doClose()
+	protected void doClose()
 	throws IOException {
-		createDriver.close();
-		readDriver.close();
+		producerFuncCache.clear();
+		Util.closeAll(producerCache.values());
+		consumerFuncCache.clear();
+		Util.closeAll(consumerCache.values());
 		Util.closeAll(clients.values());
 		clients.clear();
+		super.doClose();
 	}
 }

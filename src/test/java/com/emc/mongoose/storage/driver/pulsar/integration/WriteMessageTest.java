@@ -112,7 +112,7 @@ public class WriteMessageTest {
 					.value(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 					.sendAsync()
 					.handle((msgId, thrown) -> thrown == null ? msgId : thrown)
-					.get(1, TimeUnit.SECONDS);
+					.get(10, TimeUnit.SECONDS);
 				assertFalse(result instanceof Throwable);
 				assertTrue(result instanceof MessageId);
 				final var msgId = (MessageId) result;

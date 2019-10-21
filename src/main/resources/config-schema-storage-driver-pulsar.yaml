@@ -2,7 +2,11 @@
 storage:
   driver:
     create:
+      batch:
+        enabled: boolean
+        delayMicros: long
       compression: string
+      timestamp: boolean
     read:
       tail: boolean
   net:

@@ -24,7 +24,9 @@ Apache Pulsar extension for Mongoose
 &nbsp;&nbsp;5.1. [Message Operations](#51-message-operations)<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;5.1.1. [Create](#511-create)<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;5.1.2. [Read](#512-read)<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;5.1.3. [End-to-end Latency](#513-end-to-end-latency)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1.2.1. [Basic](#5121-basic)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1.2.2. [Tail](#5122-tail)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1.2.3. [End-to-end Latency](#5123-end-to-end-latency)<br/>
 &nbsp;&nbsp;5.2. [Topic Operations](#52-topic-operations)<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;5.2.1. [Create](#521-create)<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;5.2.2. [Read](#522-read)<br/>
@@ -61,7 +63,7 @@ Apache Pulsar extension for Mongoose
     * `updae` (topics appending, TODO)
     * `delete` (topics, TODO)
 * Storage-specific:
-    * [End-to-end latency measurement](#513-end-to-end-latency)
+    * [End-to-end latency measurement](#5123-end-to-end-latency)
 
 # 3. Deployment
 
@@ -100,7 +102,6 @@ docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-pulsar \
     --storage-net-node-addrs=<NODE_IP_ADDRS> \
-    --storage-net-node-port=6650 \
     --load-batch-size=1000 \
     --storage-driver-limit-concurrency=1000 \
     ...
@@ -126,7 +127,6 @@ docker run \
     emcmongoose/mongoose-storage-driver-pulsar \
     --load-step-node-addrs=<ADDR1,ADDR2,...> \
     --storage-net-node-addrs=<NODE_IP_ADDRS> \
-    --storage-net-node-port=6650 \
     --load-batch-size=1000 \
     --storage-driver-limit-concurrency=1000 \
     ...
@@ -140,8 +140,11 @@ Reference
 
 | Name                               | Type            | Default Value | Description                                      |
 |:-----------------------------------|:----------------|:--------------|:-------------------------------------------------|
+| storage-driver-create-batch-enabled| boolean         | `true`        | [Producer batching](https://pulsar.apache.org/docs/en/concepts-messaging/#batching)
+| storage-driver-create-batch-delayMicros | long integer | 1000        | Maximum publish latency (microseconds)
 | storage-driver-create-compression  | enum            | `none`        | Should compress data upon messages create or not (default). The available compression types are defined by the [Pulsar client](https://github.com/apache/pulsar/blob/be6a102511560349701dbe6b83fabf831dc81340/pulsar-client-api/src/main/java/org/apache/pulsar/client/api/CompressionType.java#L24)
-| storage-driver-read-tail           | boolean         | `false`       | Should read the latest message of the topic or read from the topic beginning (default)
+| storage-driver-create-timestamp    | boolean         | `false`       | If enabled, will record the message creation timestamp into the message's metadata. Required for [end-to-end latency measurement](#5123-end-to-end-latency)
+| storage-driver-read-tail           | boolean         | `false`       | Should read the latest message of the topic or read from the topic beginning (default). Should be `true` for [end-to-end latency measurement](#5123-end-to-end-latency)
 | storage-net-tcpNoDelay             | boolean         | `true`        | The option specifies whether the server disables the delay of sending successive small packets on the network.
 | storage-net-timeoutMilliSec        | integer         | `0`           | Connection timeout. `0` means no timeout
 | storage-net-node-addrs             | list of strings | `127.0.0.1`   | The list of the storage node IPs or hostnames to use for HTTP load. May include port numbers.
@@ -172,7 +175,7 @@ Example, write 1KB messages to the topic "topic1" in the Pulsar instance w/ addr
 docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-pulsar \
-    --storage-net-node-addrs=12.34.56.78:6650 \
+    --storage-net-node-addrs=12.34.56.78 \
     --load-batch-size=1000 \
     --storage-driver-limit-concurrency=1000 \
     --item-data-size=1KB \
@@ -181,6 +184,10 @@ docker run \
 
 ### 5.1.2. Read
 
+***Notes***: 
+1. Generally, `load-op-recycle` option should be set to `true` to make the messages reading working. 
+2. Mongoose couldn't determine the end of the topic(s), so it's mandatory to specify the count/time limit.
+
 #### 5.1.2.1. Basic
 
 Example, read 1M messages from the beginning of the topic "topic1":
@@ -188,7 +195,7 @@ Example, read 1M messages from the beginning of the topic "topic1":
 docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-pulsar \
-    --storage-net-node-addrs=12.34.56.78:6650 \
+    --storage-net-node-addrs=12.34.56.78 \
     --load-batch-size=100 \
     --storage-driver-limit-concurrency=100 \
     --read \ 
@@ -197,8 +204,6 @@ docker run \
     --load-op-limit-count=1000000
 ```
 
-**Note**: Mongoose couldn't determine the end of the topic(s), so it's mandatory to specify the count/time limit.
-
 #### 5.1.2.2. Tail
 
 Example, read all new messages from the topic "topic1" during the 1 minute:
@@ -206,7 +211,7 @@ Example, read all new messages from the topic "topic1" during the 1 minute:
 docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-pulsar \
-    --storage-net-node-addrs=12.34.56.78:6650 \
+    --storage-net-node-addrs=12.34.56.78 \
     --load-batch-size=100 \
     --storage-driver-limit-concurrency=100 \
     --read \ 
@@ -216,11 +221,42 @@ docker run \
     --load-step-limit-time=1m
 ```
 
-**Note**: Mongoose couldn't determine the end of the topic(s), so it's mandatory to specify the count/time limit.
+### 5.1.2.3. End-To-End Latency
 
-### 5.1.3. End-To-End Latency
+1. Start writing the messages to some topic with enabled timestamps recording. Example command:
 
-TODO: https://mongoose-issues.atlassian.net/browse/PULSAR-3
+```bash
+docker run \
+    --network host \
+    emcmongoose/mongoose-storage-driver-pulsar \
+    --item-data-size=1KB \
+    --item-output-path=topic1 \
+    --load-batch-size=1000 \
+    --storage-driver-create-timestamp
+```
+
+2. Start the tail read from the same topic:
+
+```bash
+docker run \
+    --network host \
+    --volume $PWD/log:/root/.mongoose/4.2.16/log
+    emcmongoose/mongoose-storage-driver-pulsar \
+    --load-batch-size=1000 \
+    --read \
+    --item-input-path=topic1 \
+    --storage-driver-read-tail \
+    --load-op-recycle \
+    --load-step-id=e2e_test
+```
+
+3. Check the end-to-end time data in the `log/e2e_test/op.trace.csv` log file. 
+The data is in the CSV format with 3 columns:
+* internal message id
+* message payload size
+* end-to-end time *in milliseconds*
+
+***Note***: the end-to-end time data will not be aggregated in the distributed mode.
 
 ## 5.2. Topic Operations
 
@@ -280,7 +316,7 @@ export SUITE=api.storage
 TEST=<TODO_TEST_NAME> ./gradlew robotest
 ```
 
-### 7.2.1. Manual
+### 7.2.2. Manual
 
 1. [Build the storage driver](#71-build)
 2. Copy the storage driver's jar file into the mongoose's `ext` directory:

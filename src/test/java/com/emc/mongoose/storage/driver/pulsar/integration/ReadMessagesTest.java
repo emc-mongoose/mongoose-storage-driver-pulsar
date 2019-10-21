@@ -199,7 +199,7 @@ public class ReadMessagesTest {
 			final var producedCount_ = producedCount.sum();
 			assertTrue(producedCount_ > 0);
 			//noinspection IntegerDivisionInFloatingPointContext
-			assertEquals(producedCount_, consumedCount.sum(), producedCount_ / 20);
+			assertEquals(producedCount_, consumedCount.sum(), producedCount_ / 10);
 		}
 	}
 }

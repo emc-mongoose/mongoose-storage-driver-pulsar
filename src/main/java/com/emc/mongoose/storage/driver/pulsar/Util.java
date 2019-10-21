@@ -6,8 +6,6 @@ import com.emc.mongoose.base.logging.LogUtil;
 import lombok.val;
 import org.apache.logging.log4j.Level;
 
-import java.io.EOFException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
