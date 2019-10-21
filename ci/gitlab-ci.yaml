@@ -157,17 +157,17 @@ build_docker_image:
       - build/log/create_record_test/*.log
     when: on_failure
 
-test_create_messages:
-  extends: .test_robot
-  variables:
-    SUITE: api.storage
-    TEST: create_messages
-
-test_e2e_time_measurement:
-  extends: .test_robot
-  variables:
-    SUITE: api.storage
-    TEST: e2e_time_measurement
+#test_create_messages:
+#  extends: .test_robot
+#  variables:
+#    SUITE: api.storage
+#    TEST: create_messages
+#
+#test_e2e_time_measurement:
+#  extends: .test_robot
+#  variables:
+#    SUITE: api.storage
+#    TEST: e2e_time_measurement
 
 release_to_maven_repo:
   stage: deploy
