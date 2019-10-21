@@ -11,8 +11,7 @@ RUN ./gradlew clean jar
 
 FROM emcmongoose/mongoose-base:${BASE_VERSION}
 ARG BASE_VERSION
-ARG LOAD_STEP_PIPELINE_VERSION
-ARG STORAGE_DRIVER_CCOP_VERSION
+ARG STORAGE_DRIVER_COOP_VERSION
 ARG VERSION
 RUN mkdir -p $HOME/.mongoose/${BASE_VERSION}/ext
 COPY --from=0 /build/libs/mongoose-storage-driver-pulsar-${VERSION}.jar /tmp/

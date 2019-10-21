@@ -57,7 +57,6 @@ ext {
 		log4j                    : "2.8.2",
 		mongooseBase             : "4.2.16",
 		mongooseStorageDriverCoop: "4.2.18",
-		mongooseLoadStepPipeline : "4.2.11",
 	]
 	rootPkg = "com.emc.mongoose.storage.driver.pulsar"
 	baseJarFileName = "mongoose"
@@ -250,7 +249,6 @@ task dockerBuildImage(type: DockerBuildImage) {
 	inputDir = project.projectDir
 	buildArgs = [
 		"BASE_VERSION"       : depVersion.mongooseBase,
-		"LOAD_STEP_PIPELINE_VERSION": depVersion.mongooseLoadStepPipeline,
 		"STORAGE_DRIVER_COOP_VERSION": depVersion.mongooseStorageDriverCoop,
 		"VERSION"            : version,
 	]
