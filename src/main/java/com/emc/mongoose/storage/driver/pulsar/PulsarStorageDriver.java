@@ -350,6 +350,7 @@ extends CoopStorageDriverBase<I, O> {
 			}
 			return handleMessageTransferred(op, null, msgSize);
 		} else {
+			concurrencyThrottle.release();
 			failOperation(op, FAIL_UNKNOWN);
 			return null;
 		}
