@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.LongAdder;
 
 import static com.emc.mongoose.base.Exceptions.throwUncheckedIfInterrupted;
 import static com.github.akurilov.commons.lang.Exceptions.throwUnchecked;
+import static java.lang.System.currentTimeMillis;
 import static java.lang.System.nanoTime;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -200,6 +201,97 @@ public class ReadMessagesTest {
 			assertTrue(producedCount_ > 0);
 			//noinspection IntegerDivisionInFloatingPointContext
 			assertEquals(producedCount_, consumedCount.sum(), producedCount_ / 10);
+		}
+	}
+
+	@Test
+	public final void testReadEmptyMessage()
+	throws Exception {
+		final var topicName = Long.toString(nanoTime());
+		try(
+			final var client = PulsarClient
+				.builder()
+				.serviceUrl("pulsar://localhost:6650")
+				.build()
+		) {
+			try(
+				final var producer = client
+					.newProducer()
+					.topic(topicName)
+					.create()
+			) {
+				final var result = producer
+					.newMessage()
+					.sendAsync()
+					.handle((msgId, thrown) -> thrown == null ? msgId : thrown)
+					.get(1, TimeUnit.SECONDS);
+				assertFalse(result instanceof Throwable);
+				assertTrue(result instanceof MessageId);
+				final var msgId = (MessageId) result;
+				System.out.println(msgId);
+			}
+			try(
+				final var consumer = client
+					.newConsumer()
+					.subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+					.topic(topicName)
+					.subscriptionName("subscription1")
+					.subscribe()
+			) {
+				final var msg = consumer.receive(1, TimeUnit.SECONDS);
+				final var payload = msg.getData();
+				assertEquals(0, payload.length);
+			}
+		}
+	}
+
+	@Test
+	public final void testEndToEndTime()
+	throws Exception {
+		final var topicName = Long.toString(nanoTime());
+		try(
+			final var client = PulsarClient
+				.builder()
+				.serviceUrl("pulsar://localhost:6650")
+				.build()
+		) {
+			var evtTime = 0L;
+			try(
+				final var producer = client
+					.newProducer()
+					.topic(topicName)
+					.create()
+			) {
+				Thread.sleep(1000);
+				evtTime = currentTimeMillis();
+				final var result = producer
+					.newMessage()
+					.value(new byte[] {1})
+					.eventTime(evtTime)
+					.sendAsync()
+					.handle((msgId, thrown) -> thrown == null ? msgId : thrown)
+					.get(1, TimeUnit.SECONDS);
+				assertFalse(result instanceof Throwable);
+				assertTrue(result instanceof MessageId);
+				final var msgId = (MessageId) result;
+				System.out.println(msgId);
+			}
+			try(
+				final var consumer = client
+					.newConsumer()
+					.subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+					.topic(topicName)
+					.subscriptionName("subscription1")
+					.subscribe()
+			) {
+				final var msg = consumer.receive(1, TimeUnit.SECONDS);
+				final var readTime = currentTimeMillis();
+				final var actualEvtTime = msg.getEventTime();
+				final var publishTime = msg.getPublishTime();
+				assertEquals(evtTime, actualEvtTime);
+				assertTrue(readTime > evtTime);
+				assertTrue(readTime > publishTime);
+			}
 		}
 	}
 }

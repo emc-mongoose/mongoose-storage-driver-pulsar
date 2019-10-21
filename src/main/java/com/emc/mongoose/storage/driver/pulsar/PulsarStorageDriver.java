@@ -339,13 +339,12 @@ extends CoopStorageDriverBase<I, O> {
 		if(null == thrown) {
 			val msgSize = msg.getData().length;
 			if(Latest.equals(initPos)) { // tail read, try to determine the end-to-end time
+				val msgId = msg.getMessageId();
 				val e2eTimeMillis = currentTimeMillis() - msg.getEventTime();
 				if(e2eTimeMillis > 0) {
-					Loggers.OP_TRACES.info(new EndToEndLogMessage(msg.getMessageId(), msgSize, e2eTimeMillis));
+					Loggers.OP_TRACES.info(new EndToEndLogMessage(msgId, msgSize, e2eTimeMillis));
 				} else {
-					Loggers.ERR.warn(
-						"{}: publish time is in the future for the message \"{}\"", stepId, msg.getMessageId()
-					);
+					Loggers.ERR.warn("{}: publish time is in the future for the message \"{}\"", stepId, msgId);
 				}
 			}
 			return handleMessageTransferred(op, null, msgSize);
