@@ -4,9 +4,6 @@ import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.junit.Test;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.emc.mongoose.base.Constants.MIB;
@@ -23,18 +20,7 @@ public class WriteMessageTest {
 		try(
 			final var client = PulsarClient
 				.builder()
-				//.allowTlsInsecureConnection(true)
-				//.authentication(new AuthenticationDisabled())
-				//.connectionsPerBroker(10)
-				//.connectionTimeout(1, TimeUnit.DAYS)
-				//.enableTcpNoDelay(true)
-				//.enableTlsHostnameVerification(false)
-				//.ioThreads(Runtime.getRuntime().availableProcessors())
-				//.listenerThreads(1)
-				//.keepAliveInterval(1, TimeUnit.DAYS)
-				//.maxConcurrentLookupRequests(1)
 				.serviceUrl("pulsar://localhost:6650")
-				//.statsInterval(1, TimeUnit.DAYS)
 				.build()
 		) {
 			try(
@@ -112,7 +98,7 @@ public class WriteMessageTest {
 					.value(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 					.sendAsync()
 					.handle((msgId, thrown) -> thrown == null ? msgId : thrown)
-					.get(1, TimeUnit.SECONDS);
+					.get(10, TimeUnit.SECONDS);
 				assertFalse(result instanceof Throwable);
 				assertTrue(result instanceof MessageId);
 				final var msgId = (MessageId) result;

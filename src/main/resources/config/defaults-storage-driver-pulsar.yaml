@@ -2,7 +2,11 @@
 storage:
   driver:
     create:
+      batch:
+        enabled: true
+        delayMicros: 1000
       compression: none
+      timestamp: false
     read:
       tail: false
   net:

@@ -1,4 +1,4 @@
-package com.emc.mongoose.storage.driver.pulsar.io.create;
+package com.emc.mongoose.storage.driver.pulsar.cache;
 
 import org.apache.pulsar.client.api.Producer;
 
