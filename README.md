@@ -100,6 +100,7 @@ docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-pulsar \
     --storage-net-node-addrs=<NODE_IP_ADDRS> \
+    --storage-net-node-port=6650 \
     --load-batch-size=1000 \
     --storage-driver-limit-concurrency=1000 \
     ...
@@ -125,6 +126,7 @@ docker run \
     emcmongoose/mongoose-storage-driver-pulsar \
     --load-step-node-addrs=<ADDR1,ADDR2,...> \
     --storage-net-node-addrs=<NODE_IP_ADDRS> \
+    --storage-net-node-port=6650 \
     --load-batch-size=1000 \
     --storage-driver-limit-concurrency=1000 \
     ...
@@ -170,7 +172,7 @@ Example, write 1KB messages to the topic "topic1" in the Pulsar instance w/ addr
 docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-pulsar \
-    --storage-net-node-addrs=12.34.56.78 \
+    --storage-net-node-addrs=12.34.56.78:6650 \
     --load-batch-size=1000 \
     --storage-driver-limit-concurrency=1000 \
     --item-data-size=1KB \
@@ -186,7 +188,7 @@ Example, read 1M messages from the beginning of the topic "topic1":
 docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-pulsar \
-    --storage-net-node-addrs=12.34.56.78 \
+    --storage-net-node-addrs=12.34.56.78:6650 \
     --load-batch-size=100 \
     --storage-driver-limit-concurrency=100 \
     --read \ 
@@ -204,7 +206,7 @@ Example, read all new messages from the topic "topic1" during the 1 minute:
 docker run \
     --network host \
     emcmongoose/mongoose-storage-driver-pulsar \
-    --storage-net-node-addrs=12.34.56.78 \
+    --storage-net-node-addrs=12.34.56.78:6650 \
     --load-batch-size=100 \
     --storage-driver-limit-concurrency=100 \
     --read \ 
