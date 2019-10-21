@@ -11,4 +11,4 @@ storage:
     node:
       addrs:
         - 127.0.0.1
-      port: 9092
+      port: 6650
