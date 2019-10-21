@@ -336,18 +336,23 @@ extends CoopStorageDriverBase<I, O> {
 	}
 
 	protected Object handleMessageRead(final O op, final Throwable thrown, final Message<byte[]> msg) {
-		val msgSize = msg.getData().length;
-		if(Latest.equals(initPos)) { // tail read, try to determine the end-to-end time
-			val e2eTimeMillis = currentTimeMillis() - msg.getEventTime();
-			if(e2eTimeMillis > 0) {
-				Loggers.OP_TRACES.info(new EndToEndLogMessage(msg.getMessageId(), msgSize, e2eTimeMillis));
-			} else {
-				Loggers.ERR.warn(
-					"{}: publish time is in the future for the message \"{}\"", stepId, msg.getMessageId()
-				);
+		if(null == thrown) {
+			val msgSize = msg.getData().length;
+			if(Latest.equals(initPos)) { // tail read, try to determine the end-to-end time
+				val e2eTimeMillis = currentTimeMillis() - msg.getEventTime();
+				if(e2eTimeMillis > 0) {
+					Loggers.OP_TRACES.info(new EndToEndLogMessage(msg.getMessageId(), msgSize, e2eTimeMillis));
+				} else {
+					Loggers.ERR.warn(
+						"{}: publish time is in the future for the message \"{}\"", stepId, msg.getMessageId()
+					);
+				}
 			}
+			return handleMessageTransferred(op, null, msgSize);
+		} else {
+			failOperation(op, FAIL_UNKNOWN);
+			return null;
 		}
-		return handleMessageTransferred(op, thrown, msgSize);
 	}
 
 	@Override
