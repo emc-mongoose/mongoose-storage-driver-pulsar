@@ -17,6 +17,7 @@ ${MONGOOSE_CONTAINER_NAME} =  mongoose-storage-driver-pulsar
 *** Test Cases ***
 
 Create Messages Test
+    [Timeout]  5 minutes
     [Tags]  create_messages
     ${node_addr} =  Get Environment Variable  SERVICE_HOST  127.0.0.1
     ${step_id} =  Set Variable  create_messages_test
@@ -34,6 +35,7 @@ Create Messages Test
     Validate Metrics Total Log File  ${step_id}  CREATE  ${count_limit}  0  1048576000
 
 End To End Time Measurement Test
+    [Timeout]  5 minutes
     [Tags]  e2e_time_measurement
     ${node_addr} =  Get Environment Variable  SERVICE_HOST  127.0.0.1
     ${step_id} =  Set Variable  e2e_time_measurement_test
@@ -88,7 +90,7 @@ Start Mongoose Scenario
     [Return]  ${std_out}
 
 Execute Mongoose Scenario
-    [Timeout]  10 minutes
+    [Timeout]  5 minutes
     [Arguments]   ${shared_data_dir}  ${env}  ${args}
     ${docker_env_vars} =  Evaluate  ' '.join(['-e %s=%s' % (key, value) for (key, value) in ${env}.items()])
     ${host_working_dir} =  Get Environment Variable  HOST_WORKING_DIR
