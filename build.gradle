@@ -54,7 +54,7 @@ ext {
 		confuseIoYaml            : "1.0.0",
 		disruptor                : "3.4.2",
 		dockerJava               : "3.0.14",
-		log4j                    : "2.8.2",
+		log4j                    : "2.19.0",
 		mongooseBase             : "4.2.16",
 		mongooseStorageDriverCoop: "4.2.18",
 	]
