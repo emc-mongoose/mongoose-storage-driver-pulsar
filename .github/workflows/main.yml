@@ -1,0 +1,5 @@
+on: [push]
+jobs:
+  build_job:
+    uses:
+      emc-mongoose/mongoose-base/.github/workflows/main.yml@master
